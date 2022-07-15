@@ -5,6 +5,10 @@ I have done lots of Always On VPN implementations. I mostly try to use Intune co
 The script uses the technique described by Microsoft on Docs: Configure Windows 10 client Always On VPN connections but I have added some nice functions. This technique uses CSP over WMI to add the VPN in a similar way as Intune. The device tunnel script must be run under System context to successfully build a device tunnel that connect as System before login.
 
 Windows 11 has some issues with the CSP and VPN_v2. So this script will fail on some older Windows 11 versions.
+CHANGELOG
+    1.0.2202.1 - Initial Version
+    1.0.2207.1 - Solved a problem with uninstall device tunnel from Add Remove Programs
+    1.0.2207.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed    
 
 # Reinstall/Uninstall
 
