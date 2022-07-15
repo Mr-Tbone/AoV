@@ -42,6 +42,8 @@
 
 .CHANGELOG
     1.0.2202.1 - Initial Version
+    1.0.2207.1 - Solved a problem with uninstall device tunnel from Add Remove Programs
+    1.0.2207.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed     
 #>
 
 #region ---------------------------------------------------[Set script requirements]-----------------------------------------------
@@ -63,12 +65,12 @@ Param(
 $Company = "Coligo"    #Used in VPN ProfileName and registry keys
 
 #Version info
-[version]$ConfigVersion   = "1.0.2202.1"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
+[version]$ConfigVersion   = "1.0.2207.2"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
 $AddRemoveProgramEnabled  = $True         #$true register an App in Add Remove Programs for versioning and uninstall, $false skip registration in Add Remove Programs
 $MinWinBuild              = 17763         #17763 will require Windows 1809 to execute
 
 #Log settings
-$Global:GuiLogEnabled   = $False       #$true for test of script in manual execution
+$Global:GuiLogEnabled   = $False        #$true for test of script in manual execution
 $Global:EventlogEnabled = $True        #Creates an event log in Event viewer Application log
 $Global:FileLogEnabled  = $False       #Creates a file log for troubleshooting
 $Global:FileLogPath     = "$env:TEMP"  #Path to the file log
@@ -84,36 +86,44 @@ $NetworkOutageTime  = "0"   #VPN reconnect timeout in seconds: '60', '120', '300
 $UseRasCredentials  = "1"   #VPN reuses RAS credentials to connect to internal resourses with SSO (1 = Default, 1 = Recommended)
    
 # Always on VPN connection XML settings
-$Oldprofilename = ''                   #Optional, Cleanup of old connections with another name for example: "AoV-Devicetunnel*". To delete none, enter: '' 
+$Oldprofilename = "*"                   #Optional, Cleanup of old connections with another name for example: "AoV-Devicetunnel*". To delete none, enter: '' 
 $ProfileName    = "$company AoV Device Tunnel" #Name of the VPN profile to create
 $ProfileXML     = '  
 <VPNProfile>
-    <DeviceTunnel>true</DeviceTunnel>
-    <AlwaysOn>true</AlwaysOn>
-    <RememberCredentials>true</RememberCredentials>
-    <TrustedNetworkDetection>coligo.se</TrustedNetworkDetection>
-    <DnsSuffix>coligo.se</DnsSuffix>
-    <RegisterDNS>true</RegisterDNS>
-    <DomainNameInformation>                                                                 <!--NRPT and Trigger VPN to connect if using any of the listed adresses-->
-        <DomainName>.coligo.se</DomainName>
-        <DnsServers>10.1.1.1,10.1.1.2</DnsServers>  
-        <AutoTrigger>true</AutoTrigger>
+    <DeviceTunnel>true</DeviceTunnel>                       <!--Create Device Tunnel-->
+    <AlwaysOn>true</AlwaysOn>                               <!--Make the tunnel Always on-->
+    <RememberCredentials>true</RememberCredentials>         <!--Remeber credentials from last successfule connection-->
+    <TrustedNetworkDetection></TrustedNetworkDetection>     <!--Not Recommended if using both User and Device tunnel-->
+    <DnsSuffix>Coligo.se</DnsSuffix>                         <!--The DNS suffix for the VPN NIC-->
+    <RegisterDNS>true</RegisterDNS>                         <!--Register the VPN IP in Company DNS-->
+    <DomainNameInformation>                                 <!--NRPT and Trigger VPN to connect if using any of the listed adresses-->
+        <DomainName>.coligo.se</DomainName>                  <!--NRPT domain to trigger this rule-->
+        <DnsServers>10.10.10.4</DnsServers>                 <!--NRPT DNS to use when doing lookups on that domain. (Cannot be blank in Win 11)-->
+        <AutoTrigger>true</AutoTrigger>                     <!--NRPT Auto connect VPN if using the domain name-->
     </DomainNameInformation>
-    <DomainNameInformation>
+    <DomainNameInformation>                                 <!--NRPT exclude your VPN server from suffix rule above -->
         <DomainName>vpn.coligo.se</DomainName>
-        <DnsServers></DnsServers>
-        <AutoTrigger>false</AutoTrigger>
+        <DnsServers>1.1.1.1,8.8.8.8</DnsServers>            <!--Using public DNS (Cannot be blank in Win 11)-->
+        <AutoTrigger>true</AutoTrigger>                     
     </DomainNameInformation>
     <NativeProfile>
-        <Servers>vpn.coligo.se</Servers>
-        <NativeProtocolType>IKEv2</NativeProtocolType>
-        <RoutingPolicyType>SplitTunnel</RoutingPolicyType>
-        <Authentication>
+        <Servers>vpn.coligo.se</Servers>                     <!--VPN Server Address-->
+        <NativeProtocolType>IKEv2</NativeProtocolType>      <!--VPN Connection Protocol-->
+        <RoutingPolicyType>SplitTunnel</RoutingPolicyType>  <!--VPN with SplitTunnel or ForcedTunnel-->
+        <Authentication>                                    <!--VPN Authentication Method-->
             <MachineMethod>Certificate</MachineMethod>
         </Authentication>
-        <DisableClassBasedDefaultRoute>true</DisableClassBasedDefaultRoute>                 <!--Manual Routes used instead-->
+        <CryptographySuite>                                 <!--VPN Algorithms used-->
+            <AuthenticationTransformConstants>SHA256128</AuthenticationTransformConstants>
+            <CipherTransformConstants>AES128</CipherTransformConstants>
+            <EncryptionMethod>AES128</EncryptionMethod>
+            <IntegrityCheckMethod>SHA256</IntegrityCheckMethod>
+            <DHGroup>Group14</DHGroup>
+            <PfsGroup>PFS2048</PfsGroup>
+        </CryptographySuite>
+        <DisableClassBasedDefaultRoute>true</DisableClassBasedDefaultRoute>     <!--VPN use Custom Routes if set to true-->
     </NativeProfile>
-    <Route><Address>10.0.0.0</Address><PrefixSize>8</PrefixSize><Metric>0</Metric></Route>
+    <Route><Address>10.0.0.0</Address><PrefixSize>8</PrefixSize><Metric>0</Metric></Route> <!--VPN Custom Routes-->
 </VPNProfile>'
 #endregion
 
@@ -147,7 +157,7 @@ $AlwaysOnInfo = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\devicetunnel'
 $AppKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$ProfileName"
 $AppPublisher   = $company                              # The publisher of the application in Add Remove Programs
 $AppFolder      = "$Env:Programfiles\$company"          # The folder for uninstallation scripts
-[guid]$AppGuid  = "65FD0F1691BE4346BDA424BAAA2344E2"    # Application GUID used in Add Remove Programs
+$AppGuid  = "{65FD0F16-91BE-4346-BDA4-24BAAA2344E2}"    # Application GUID used in Add Remove Programs
 # Imported icon for Add remove Programs in Base64 format 
 $AppIcon = 'AAABAAEAQEAAAAEAGABnEAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAABAAAAAQAgGAAAAqmlx3gAAEC5JREFUeJztm2twXdV1x39r73PO1VuWJVnyQ8YG22AetgkJDjGhEGgCQ0tdoAPpgzKEoUlJyQzJNJlO+qXJtExIQ4aUtKSF0nQgNNCZjN2WAAk0hmDM02DABvzAli3JkvzS6
 0r3nLNXP5xzr86VjO9VY2xmkjVzJZ279z57r/9ee+3/WntLVFX5NRZzsgdwsuU3AJzsAZxs+Q0AJ3sAJ1u8aisq4IDQKXuH8+zvH2I8H+MATuhGIogkv4s/Z9X7zOtspK3Gx8eCUdJKFaVKAJQodmzeN8T9T7zDfW8dIdZaVAygJxgAEDHlCkrIIgm5+ROd3HjpqXQ21iBUB4BU5g
@@ -268,8 +278,17 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
 
     logwrite -Logstring "Adding entry in Add remove programs for Always on VPN" -type Info
     $IconName = $displayname -replace '\s',''
-    $AddRemKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$displayname"  
-    $ProductsKey = "HKCR:\Installer\Products\$guid"
+    $ProductID = $guid -replace '[{}]',""
+    $ProductID = $productID.Split("-")
+    $id0 = $ProductID[0][-1..-$ProductID[0].Length] -join ''
+    $id1 = $ProductID[1][-1..-$ProductID[1].Length] -join ''
+    $id2 = $ProductID[2][-1..-$ProductID[2].Length] -join ''
+    $id3 = $ProductID[3][-1..-$ProductID[3].Length] -join ''
+    $id4 = $ProductID[4].TocharArray()
+    $id4 = $id4[1]+$id4[0]+$id4[3]+$id4[2]+$id4[5]+$id4[4]+$id4[7]+$id4[6]+$id4[9]+$id4[8]+$id4[11]+$id4[10]
+    $ProductID = $id0+$id1+$id2+$id3+$id4
+    $AddRemKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$guid"
+    $ProductsKey = "HKCR:\Installer\Products\$ProductID"
     $UninstallString = "CMD /C START cmd /c "+'"'+"$appfolder\uninstall-$guid.bat"+'"'
     $UninstallBAT = "$appfolder\uninstall-$guid.bat"
     $Uninstallcmd1 = "cd $appfolder\"
@@ -305,6 +324,12 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
     try {New-ItemProperty -Path $AddRemKey -Name DisplayVersion -PropertyType String -Value $Version -Force | Out-null
         logwrite -Logstring "Created Registry key DisplayVersion for Add Remove Programs." -type Info}
     catch [Exception]{logwrite -Logstring "Cannot Created Registry key DisplayVersion for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $AddRemKey -Name VersionMajor -PropertyType String -Value $Version.major -Force | Out-null
+        logwrite -Logstring "Created Registry key VersionMajor for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key VersionMajor for Add Remove Programs with error: $_" -type Warning} 
+        try {New-ItemProperty -Path $AddRemKey -Name VersionMinor -PropertyType String -Value $Version.minor -Force | Out-null
+        logwrite -Logstring "Created Registry key VersionMinor for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key VersionMinor for Add Remove Programs with error: $_" -type Warning}
     try {New-ItemProperty -Path $AddRemKey -Name UninstallString -PropertyType String -Value $UninstallString -Force | Out-null
         logwrite -Logstring "Created Registry key UninstallString for Add Remove Programs." -type Info}
     catch [Exception]{logwrite -Logstring "Cannot Created Registry key UninstallString for Add Remove Programs with error: $_" -type Warning}
@@ -338,15 +363,75 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
     try {New-ItemProperty -Path $ProductsKey -Name ProductName -PropertyType String -Value $DisplayName -Force | Out-null
         logwrite -Logstring "Created Registry key ProductName for Add Remove Programs." -type Info}
     catch [Exception]{logwrite -Logstring "Cannot Created Registry key ProductName for Add Remove Programs with error: $_" -type Warning}
-
+    try {New-ItemProperty -Path $ProductsKey -Name ProductIcon -PropertyType String -Value $IconPath -Force | Out-null
+        logwrite -Logstring "Created Registry key ProductIcon for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key ProductIcon for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $ProductsKey -Name AdvertiseFlags -PropertyType dword -Value 388 -Force | Out-null
+        logwrite -Logstring "Created Registry key AdvertiseFlags for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key AdvertiseFlags for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $ProductsKey -Name Assignment -PropertyType dword -Value 1 -Force | Out-null
+        logwrite -Logstring "Created Registry key Assignment for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key Assignment for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $ProductsKey -Name AuthorizedLUAApp -PropertyType dword -Value 0 -Force | Out-null
+        logwrite -Logstring "Created Registry key AuthorizedLUAApp for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key AuthorizedLUAApp for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $ProductsKey -Name Clients -PropertyType MultiString  -Value (':') -Force | Out-null
+        logwrite -Logstring "Created Registry key Clients for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key Clients for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $ProductsKey -Name DeploymentFlags -PropertyType dword -Value 3 -Force | Out-null
+        logwrite -Logstring "Created Registry key DeploymentFlags for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key DeploymentFlags for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $ProductsKey -Name InstanceType -PropertyType dword -Value 0 -Force | Out-null
+        logwrite -Logstring "Created Registry key InstanceType for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key InstanceType for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $ProductsKey -Name Language -PropertyType dword -Value 1033 -Force | Out-null
+        logwrite -Logstring "Created Registry key Language for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key Language for Add Remove Programs with error: $_" -type Warning}
+    IF(!(Test-Path $ProductsKey\Sourcelist)){
+        Try {New-Item -Path $ProductsKey\Sourcelist -Force | Out-Null
+            logwrite -Logstring "Created Registry Path $($ProductsKey)\Sourcelist in registry." -type Info}
+         catch{logwrite -Logstring "Cannot create Registry Path $($ProductsKey)\Sourcelist in registry" -type Warning}
+         }
+    try {New-ItemProperty -Path $ProductsKey\Sourcelist -Name LastUsedSource -PropertyType ExpandString -Value "n;1;$($appfolder)\" -Force | Out-null
+        logwrite -Logstring "Created Registry key LastUsedSource for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key LastUsedSource for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $ProductsKey\Sourcelist -Name PackageName -PropertyType String -Value "uninstall-$($guid).bat" -Force | Out-null
+        logwrite -Logstring "Created Registry key PackageName for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key PackageName for Add Remove Programs with error: $_" -type Warning}
+    IF(!(Test-Path $ProductsKey\sourcelist\media)){
+        Try {New-Item -Path $ProductsKey\Sourcelist\media -Force | Out-Null
+            logwrite -Logstring "Created Registry Path $($ProductsKey)\Sourcelist\media in registry." -type Info}
+         catch{logwrite -Logstring "Cannot create Registry Path $($ProductsKey)\Sourcelist\media in registry" -type Warning}
+         }
+    try {New-ItemProperty -Path $ProductsKey\Sourcelist\media -Name 1 -PropertyType String -Value ";" -Force | Out-null
+        logwrite -Logstring "Created Registry key 1 for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key 1 for Add Remove Programs with error: $_" -type Warning}
+    IF(!(Test-Path $ProductsKey\Sourcelist\Net)){
+        Try {New-Item -Path $ProductsKey\Sourcelist\Net -Force | Out-Null
+            logwrite -Logstring "Created Registry Path $($ProductsKey)\Sourcelist\net in registry." -type Info}
+         catch{logwrite -Logstring "Cannot create Registry Path $($ProductsKey)\Sourcelist\net in registry" -type Warning}
+         }
+    try {New-ItemProperty -Path $ProductsKey\Sourcelist\Net -Name 1 -PropertyType ExpandString -Value "$($appfolder)\" -Force | Out-null
+        logwrite -Logstring "Created Registry key 1 for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Cannot Created Registry key 1 for Add Remove Programs with error: $_" -type Warning}
+ 
     remove-psdrive -name HKCR 
  }
 
  Function Remove-AddRemovePrograms($DisplayName, $Version, $guid, $AppFolder){  
 
     logwrite -Logstring "Removing entry in Add remove programs for Always on VPN" -type Info
-    $AddRemKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$displayname"  
-    $ProductsKey = "HKCR:\Installer\Products\$guid"
+    $ProductID = $guid -replace '[{}]',""
+    $ProductID = $productID.Split("-")
+    $id0 = $ProductID[0][-1..-$ProductID[0].Length] -join ''
+    $id1 = $ProductID[1][-1..-$ProductID[1].Length] -join ''
+    $id2 = $ProductID[2][-1..-$ProductID[2].Length] -join ''
+    $id3 = $ProductID[3][-1..-$ProductID[3].Length] -join ''
+    $id4 = $ProductID[4].TocharArray()
+    $id4 = $id4[1]+$id4[0]+$id4[3]+$id4[2]+$id4[5]+$id4[4]+$id4[7]+$id4[6]+$id4[9]+$id4[8]+$id4[11]+$id4[10]
+    $ProductID = $id0+$id1+$id2+$id3+$id4
+    $AddRemKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$guid"
+    $ProductsKey = "HKCR:\Installer\Products\$ProductID"
     $IconName = $displayname -replace '\s',''
     $Iconfile = "$IconName.ico"
     
@@ -362,7 +447,7 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
     else{logwrite -Logstring "Registry key $($AddRemKey) does not exist in User registry, no need to remove." -type Warning}
 
     IF(Test-Path $ProductsKey){
-        Try{Remove-Item -Path $ProductsKey -ErrorAction SilentlyContinue -Force | Out-null
+        Try{Remove-Item -Path $ProductsKey -ErrorAction SilentlyContinue -Force -Recurse | Out-null
             logwrite -Logstring "Removed Registry hive $($ProductsKey) from registry." -type Info}
         catch {logwrite -Logstring "Cannot remove Registry hive $($ProductsKey) from registry." -type Warning}
         }
@@ -409,6 +494,49 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
     -join $edits | Set-Content $path
 }
 
+Function Get-LoggedInUser {
+    try {$username = Gwmi -Class Win32_ComputerSystem | select username | WHERE username -ne $NULL
+       logwrite -Logstring "Enumerated Username to $($username)." -type info}
+       catch [Exception] {logwrite -Logstring "Unable to get logged on Username. User may be logged on over Remote Desktop. $_" -type Warning}
+           # The VPN connection is created for the end user logged on to the computer. Enumeration of currently logged on user SID
+       if (!$username){
+       Try {New-PSDrive HKU Registry HKEY_USERS -ErrorAction Continue | out-null
+           logwrite -Logstring "Create psdrive to HKU"}
+       Catch{logwrite -Logstring "Create psdrive to HKCU with error $_" -type Error}
+           try {
+               $users = query user /server:localhost
+               $Users = $Users | ForEach-Object {(($_.trim() -replace ">" -replace "(?m)^([A-Za-z0-9]{3,})\s+(\d{1,2}\s+\w+)", '$1  none  $2' -replace "\s{2,}", "," -replace "none", $null))} | ConvertFrom-Csv
+               foreach ($User in $Users){
+                   if ($User.STATE -eq "Active")
+                   {
+                   $RDPUser = $User.username}
+                   }
+               logwrite -Logstring "Enumerated Username to $($username)." -type info}
+           catch [Exception] {logwrite -Logstring "Unable to get logged on Username from RDP sessions. Script cannot continue. $_" -type Error}
+   
+           $hkeyUsersSubkeys = Get-ChildItem -Path HKU:\ -Recurse -Depth 2| where name -like "*Volatile Environment"
+           foreach ($userkey in $hkeyUsersSubkeys) {
+               $userkey = $userkey -replace "HKEY_USERS\\", "HKU:\" 
+               if (((Get-ItemProperty -Path $Userkey)."username") -eq $RDPUser)
+                  {$DomainName = (Get-ItemProperty -Path $Userkey)."userdomain"
+                   $UserName = "$DomainName\$RDPUser"
+               }
+           }
+       }
+       else {$username = $username.username.tostring()}    
+       logwrite -Logstring "Enumerated Username to $($username)." -type info
+   
+       try {
+           $domain, $logonname = $username.tostring().split('\') 
+           $objuser = New-Object System.Security.Principal.NTAccount($username)
+           $sid = $objuser.Translate([System.Security.Principal.SecurityIdentifier])
+           $SidValue = $sid.Value
+           }
+           catch [Exception] {logwrite -Logstring "Unable to get user SID from Username. Script cannot continue. $_" -type Error}
+           return $logonname, $SidValue
+       }
+   
+
 #endregion
 
 #region ---------------------------------------------------[[Script Execution]------------------------------------------------------
@@ -433,9 +561,16 @@ If (((Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion
         logwrite -Logstring "Always On VPN is installed with version: $($currentversion), script has version: $($configversion), installtype is $($installtype)," -type Info
 
                 # To be able to create a connection for the device, the script needs to run as System
-        if ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq "S-1-5-18"){logwrite -Logstring "The script is running as admin with the SYSTEM credentials" -type Info}
-        else {logwrite -Logstring "The script is running as admin but with wrong credentials. Must run as System" -type Error}
-        
+        if ($InstallType -eq "install" -or $installtype -eq "reinstall"){
+            if ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq "S-1-5-18"){logwrite -Logstring "The script is running as admin with the SYSTEM credentials" -type Info}
+            else {logwrite -Logstring "The script is running as admin but with wrong credentials. Must run as System" -type Error}}
+        else{
+            $logonname, $sidvalue = Get-LoggedInUser
+            if ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq "S-1-5-18"){logwrite -Logstring "The script is running as admin with the SYSTEM credentials" -type Info}
+            elseif ([System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq $SidValue){logwrite -Logstring "The script is running as admin with the current user credentials" -type Info}
+            else {logwrite -Logstring "The script is running as admin but with wrong credentials. Must run as admin with the logged on user credentials, or run as System" -type Error}
+            }    
+            
             # Set WAP Push Service to start automatically 
         enable-Service $servicename 10
 
@@ -447,9 +582,16 @@ If (((Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion
             logwrite -Logstring "Unable to connect CSP over WMI bridge. $_" -type Error}
 
             # If there is an existing VPN tunnel with the same name already deployed, It must be removed before creating a new config. 
-    	try {$deleteInstances = $session.EnumerateInstances($namespaceName, $className)}
+        try {rasdial $Oldprofilename /disconnect |out-null
+            logwrite -Logstring "VPN Tunnel $($Oldprofilename) Disconnected" -type Info}
+        catch [Exception] {logwrite -Logstring "VPN Tunnel $($Oldprofilename) failed to Disconnect" -type Info}
+        try {rasdial $profilename /disconnect |out-null
+            logwrite -Logstring "VPN Tunnel $($profilename) Disconnected" -type Info}
+        catch [Exception] {logwrite -Logstring "VPN Tunnel $($profilename) failed to Disconnect" -type Info}
+
+        try {$deleteInstances = $session.EnumerateInstances($namespaceName, $className)}
         catch [Exception] {logwrite -Logstring "No existing VPN Tunnel was found." -type Info}
-        if ($deleteInstances){
+        if (-not (test-path variable:deleteinstances)){
         	foreach ($deleteInstance in $deleteInstances){
             	$InstanceId = $deleteInstance.InstanceID
                 logwrite -Logstring "VPN Tunnel $($instanceid) exist on device" -type Info
@@ -461,7 +603,26 @@ If (((Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion
                 else {logwrite -Logstring "Ignoring existing VPN VPN Tunnel $($InstanceId)" -type Info}
        		    }
             }
-        else {logwrite -Logstring "No existing VPN Tunnel existed, skip remove" -type Info}
+        else {logwrite -Logstring "No existing VPN Tunnel existed for CSP over WMI, trying Powershell" -type Info
+		    if ($deleteInstance = get-vpnconnection -alluserconnection -name "$profilename" -ErrorAction SilentlyContinue){
+         	    try {$deleteInstance| remove-vpnconnection -force
+                    logwrite -Logstring "VPN Device Tunnel $($profilename) Removed" -type Info}
+                catch [Exception] {logwrite -Logstring "Unable to remove existing VPN Tunnel $($profilename) with powershell: $_" -type Error}}
+            elseif ($deleteInstance = get-vpnconnection -name "$profilename" -ErrorAction SilentlyContinue){
+                try {$deleteInstance| remove-vpnconnection -force
+                    logwrite -Logstring "VPN User Tunnel $($profilename) Removed" -type Info}
+                catch [Exception] {logwrite -Logstring "Unable to remove existing VPN Tunnel $($profilename) with powershell: $_" -type Error}}
+            else {logwrite -Logstring "No existing VPN Tunnel with same name existed for Powershell" -type Info}
+            if ($oldprofilename -and ($deleteInstance = get-vpnconnection -alluserconnection -name "$oldprofilename" -ErrorAction SilentlyContinue)){
+                try {$deleteInstance| remove-vpnconnection -force
+                   logwrite -Logstring "VPN Device Tunnel $($oldprofilename) Removed" -type Info}
+               catch [Exception] {logwrite -Logstring "Unable to remove existing VPN Tunnel $($oldprofilename) with powershell: $_" -type Error}}
+           elseif ($deleteInstance = get-vpnconnection -name "$oldprofilename" -ErrorAction SilentlyContinue){
+               try {$deleteInstance| remove-vpnconnection -force
+                   logwrite -Logstring "VPN User Tunnel $($oldprofilename) Removed" -type Info}
+               catch [Exception] {logwrite -Logstring "Unable to remove existing VPN Tunnel $($oldprofilename) with powershell: $_" -type Error}}
+           else {logwrite -Logstring "No existing VPN Tunnel with old name existed for Powershell" -type Info}
+        }
 
             # Remove old MDM tracked setting
             Try {$MDMSettings = Get-ChildItem -Path $MDMPath -Recurse -Depth 3 | get-itemproperty | where { $_  -match  "$ProfileNameEscaped"}}
@@ -537,9 +698,12 @@ If (((Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion
             try {New-ItemProperty -Path 'HKLM:SYSTEM\CurrentControlSet\Services\Dnscache\Parameters\' -Name DisableNRPTForAdapterRegistration -PropertyType DWORD -Value 1 -Force | Out-null
                 logwrite -Logstring "Created Registry key DisableNRPTForAdapterRegistration for a more reliable DNS registration." -type Info}
             catch [Exception]{logwrite -Logstring "Cannot create Registry key DisableNRPTForAdapterRegistration with error: $_" -type Warning}
-
                 # Register or unregister in Add Remove Programs for Version and uninstallation info
             if ($AddRemoveProgramEnabled) {Add-AddRemovePrograms $ProfileName $ConfigVersion $AppGuid $AppPublisher $AppIcon $AppFolder}
+                # Connect the vpn
+            try {rasdial $profilename | out-null
+                logwrite -Logstring "VPN Tunnel $($profilename) connected" -type Info}
+            catch [Exception] {logwrite -Logstring "VPN Tunnel $($profilename) failed to connect" -type Info}
         }
             # Remove Always On VPN config version in registry if installtype is Uninstall
         if ($InstallType -eq "UnInstall"){if ($AddRemoveProgramEnabled) {Remove-AddRemovePrograms $ProfileName $ConfigVersion $AppGuid $appfolder}}
