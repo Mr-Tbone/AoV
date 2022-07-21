@@ -22,11 +22,12 @@
     torbjorn.granheden@coligo.se
 
 .VERSION
-    1.0
+    1.2
 
 .RELEASENOTES
     1.0 2022-02-18 Initial Build
-
+    1.1 2022-07-17 Solved a problem with uninstall device tunnel from Add Remove Programs
+    1.2 2022-07-18 Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed
 .AUTHOR
     Tbone Granheden 
     @MrTbone_se
@@ -70,7 +71,7 @@ $AddRemoveProgramEnabled  = $True         #$true register an App in Add Remove P
 $MinWinBuild              = 17763         #17763 will require Windows 1809 to execute
 
 #Log settings
-$Global:GuiLogEnabled   = $False        #$true for test of script in manual execution
+$Global:GuiLogEnabled   = $False       #$true for test of script in manual execution
 $Global:EventlogEnabled = $True        #Creates an event log in Event viewer Application log
 $Global:FileLogEnabled  = $False       #Creates a file log for troubleshooting
 $Global:FileLogPath     = "$env:TEMP"  #Path to the file log
@@ -86,8 +87,8 @@ $NetworkOutageTime  = "0"   #VPN reconnect timeout in seconds: '60', '120', '300
 $UseRasCredentials  = "1"   #VPN reuses RAS credentials to connect to internal resourses with SSO (1 = Default, 1 = Recommended)
    
 # Always on VPN connection XML settings
-$Oldprofilename = "*"                   #Optional, Cleanup of old connections with another name for example: "AoV-Devicetunnel*". To delete none, enter: '' 
-$ProfileName    = "$company AoV Device Tunnel" #Name of the VPN profile to create
+$Oldprofilename = ''        #Optional, Cleanup of old connections with another name for example: "AoV-Usertunnel*". To delete none, enter: '' 
+$ProfileName    = "$company AoV User Tunnel" #Name of the VPN profile to create
 $ProfileXML     = '  
 <VPNProfile>
     <DeviceTunnel>true</DeviceTunnel>                       <!--Create Device Tunnel-->
