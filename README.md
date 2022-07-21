@@ -8,11 +8,11 @@ Windows 11 has some issues with the CSP and VPN_v2. So this script will fail on 
 
 CHANGELOG
 
-    1.0.2202.1 - Initial Version
+    1.0 - Initial Version
     
-    1.0.2207.1 - Solved a problem with uninstall device tunnel from Add Remove Programs
+    1.1 - Solved a problem with uninstall device tunnel from Add Remove Programs
     
-    1.0.2207.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed    
+    1.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed    
 
 # Reinstall/Uninstall
 
