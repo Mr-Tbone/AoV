@@ -45,7 +45,7 @@ $Global:GuiLogEnabled   = $False       #$true for test of script in manual execu
 
 # Add Remove Programs
 
-As mentioned before the script will also register in Add Remove Programs with it´s name and version. This is quite nice, then it can be inventoried as any other application installed. This info is also used if the script is updated with a new version or if it is running in reinstall mode. The most tricky part with this was the uninstall part. I have not been able to completely uninstall the device tunnel from add remove programs. The uninstallation will run under the logged in user context and needs to be run in System context. Will continue to search for a solution for this.
+As mentioned before the script will also register in Add Remove Programs with it´s name and version. This is quite nice, then it can be inventoried as any other application installed. This info is also used if the script is updated with a new version or if it is running in reinstall mode. The most tricky part with this was the uninstall part. But now in the latest version, it works just fine.
 
 # Logging
 
