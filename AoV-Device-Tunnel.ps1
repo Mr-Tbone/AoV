@@ -88,7 +88,7 @@ $UseRasCredentials  = "1"   #VPN reuses RAS credentials to connect to internal r
    
 # Always on VPN connection XML settings
 $Oldprofilename = ''        #Optional, Cleanup of old connections with another name for example: "AoV-Usertunnel*". To delete none, enter: '' 
-$ProfileName    = "$company AoV User Tunnel" #Name of the VPN profile to create
+$ProfileName    = "$company AoV Device Tunnel" #Name of the VPN profile to create
 $ProfileXML     = '  
 <VPNProfile>
     <DeviceTunnel>true</DeviceTunnel>                       <!--Create Device Tunnel-->
