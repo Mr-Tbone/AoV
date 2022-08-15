@@ -12,7 +12,9 @@ CHANGELOG
     
     1.1 - Solved a problem with uninstall device tunnel from Add Remove Programs
     
-    1.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed    
+    1.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed
+    
+    1.3 - Fixed Version Check
 
 # Reinstall/Uninstall
 
