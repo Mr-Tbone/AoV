@@ -22,12 +22,13 @@
     torbjorn.granheden@coligo.se
 
 .VERSION
-    1.2
+    1.3
 
 .RELEASENOTES
     1.0 2022-02-18 Initial Build
     1.1 2022-07-17 Solved a problem with uninstall device tunnel from Add Remove Programs
     1.2 2022-07-18 Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed
+    1.3 2022-08-15 Fixed Version check
 
 .AUTHOR
     Tbone Granheden 
@@ -46,6 +47,7 @@
     1.0.2202.1 - Initial Version
     1.0.2207.1 - Solved a problem with uninstall device tunnel from Add Remove Programs
     1.0.2207.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed       
+    1.0.2208.1 - Fixed Version Check       
 #>
 
 #region ---------------------------------------------------[Set script requirements]-----------------------------------------------
@@ -67,7 +69,7 @@ Param(
 $Company = "Coligo"    #Used in VPN ProfileName and registry keys
 
 #Version info
-[version]$ConfigVersion   = "1.0.2207.2" #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
+[version]$ConfigVersion   = "1.0.2208.1" #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
 $AddRemoveProgramEnabled  = $True        #$true register an App in Add Remove Programs for version and uninstall, $false skip registration in Add Remove Programs
 $MinWinBuild              = 17763        #17763 will require Windows 1809 to execute
 
@@ -189,13 +191,13 @@ $ProfileXML = $ProfileXML -replace '<', '&lt;'
 $ProfileXML = $ProfileXML -replace '>', '&gt;'
 $ProfileXML = $ProfileXML -replace '"', '&quot;'
 #Apps and version settings
-$MDMPath = "HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked"
-$NetworkProfilesPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles\'
-$AlwaysOnInfo = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\config'
-$AppKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$ProfileName"
 $AppPublisher   = $company                              # The publisher of the application in Add Remove Programs
 $AppFolder      = "$Env:Programfiles\$company"          # The folder for uninstallation scripts
 $AppGuid  = "{65FD0F16-91BE-4346-BDA4-24BAAA2344E2}"    # Application GUID used in Add Remove Programs
+$MDMPath = "HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked"
+$NetworkProfilesPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles\'
+$AlwaysOnInfo = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\config'
+$AppKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$appguid"
 # Imported icon for Add remove Programs in Base64 format 
 $AppIcon = 'AAABAAEAQEAAAAEAGABnEAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAABAAAAAQAgGAAAAqmlx3gAAEC5JREFUeJztm2twXdV1x39r73PO1VuWJVnyQ8YG22AetgkJDjGhEGgCQ0tdoAPpgzKEoUlJyQzJNJlO+qXJtExIQ4aUtKSF0nQgNNCZjN2WAAk0hmDM02DABvzAli3JkvzS6
 0r3nLNXP5xzr86VjO9VY2xmkjVzJZ279z57r/9ee+3/WntLVFX5NRZzsgdwsuU3AJzsAZxs+Q0AJ3sAJ1u8aisq4IDQKXuH8+zvH2I8H+MATuhGIogkv4s/Z9X7zOtspK3Gx8eCUdJKFaVKAJQodmzeN8T9T7zDfW8dIdZaVAygJxgAEDHlCkrIIgm5+ROd3HjpqXQ21iBUB4BU5g
