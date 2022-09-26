@@ -162,7 +162,6 @@ $NetworkProfilesPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Netwo
 $AlwaysOnInfo = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\config'
 $AppKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$appguid"
 
-$AppGuid  = "{65FD0F16-91BE-4346-BDA4-24BAAA2344E2}"    # Application GUID used in Add Remove Programs
 # Imported icon for Add remove Programs in Base64 format 
 $AppIcon = 'AAABAAEAQEAAAAEAGABnEAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAABAAAAAQAgGAAAAqmlx3gAAEC5JREFUeJztm2twXdV1x39r73PO1VuWJVnyQ8YG22AetgkJDjGhEGgCQ0tdoAPpgzKEoUlJyQzJNJlO+qXJtExIQ4aUtKSF0nQgNNCZjN2WAAk0hmDM02DABvzAli3JkvzS6
 0r3nLNXP5xzr86VjO9VY2xmkjVzJZ279z57r/9ee+3/WntLVFX5NRZzsgdwsuU3AJzsAZxs+Q0AJ3sAJ1u8aisq4IDQKXuH8+zvH2I8H+MATuhGIogkv4s/Z9X7zOtspK3Gx8eCUdJKFaVKAJQodmzeN8T9T7zDfW8dIdZaVAygJxgAEDHlCkrIIgm5+ROd3HjpqXQ21iBUB4BU5g
