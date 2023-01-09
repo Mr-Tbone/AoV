@@ -15,6 +15,8 @@ CHANGELOG
     1.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed
     
     1.3 - Fixed Version Check
+    
+    1.4 - Fixed new DeviceTunnelInfo regkey cleanup
 
 # Reinstall/Uninstall
 
