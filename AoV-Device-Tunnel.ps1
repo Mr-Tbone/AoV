@@ -22,13 +22,14 @@
     torbjorn.granheden@coligo.se
 
 .VERSION
-    1.3
+    1.4
 
 .RELEASENOTES
     1.0 2022-02-18 Initial Build
     1.1 2022-07-17 Solved a problem with uninstall device tunnel from Add Remove Programs
     1.2 2022-07-18 Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed
     1.3 2022-08-15 Fixed Version check
+    1.4 2023-01-09 Fixed new DeviceTunnelInfo regkey cleanup
 .AUTHOR
     Tbone Granheden 
     @MrTbone_se
@@ -44,9 +45,10 @@
 
 .CHANGELOG
     1.0.2202.1 - Initial Version
-    1.0.2207.1 - Solved a problem with uninstall device tunnel from Add Remove Programs
-    1.0.2207.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed
-    1.0.2208.1 - Fixed Version Check      
+    1.1.2207.1 - Solved a problem with uninstall device tunnel from Add Remove Programs
+    1.2.2207.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed
+    1.3.2208.1 - Fixed Version Check
+    1.4.2301.1 - Fixed new DeviceTunnelInfo regkey cleanup      
 #>
 
 #region ---------------------------------------------------[Set script requirements]-----------------------------------------------
@@ -68,7 +70,7 @@ Param(
 $Company = "Coligo"    #Used in VPN ProfileName and registry keys
 
 #Version info
-[version]$ConfigVersion   = "1.0.2208.1"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
+[version]$ConfigVersion   = "1.4.2301.1"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
 $AddRemoveProgramEnabled  = $True         #$true register an App in Add Remove Programs for versioning and uninstall, $false skip registration in Add Remove Programs
 $MinWinBuild              = 17763         #17763 will require Windows 1809 to execute
 
@@ -159,6 +161,7 @@ $AppFolder      = "$Env:Programfiles\$company"          # The folder for uninsta
 $AppGuid  = "{65FD0F16-91BE-4346-BDA4-24BAAA2344E3}"    # Application GUID used in Add Remove Programs
 $MDMPath = "HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked"
 $NetworkProfilesPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles\'
+$DeviceTunnelInfoPath = 'HKLM:\System\CurrentControlSet\Services\RasMan\Devicetunnel\'
 $AlwaysOnInfo = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\config'
 $AppKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$appguid"
 
@@ -631,7 +634,7 @@ If (((Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion
             # Remove old MDM tracked setting
             Try {$MDMSettings = Get-ChildItem -Path $MDMPath -Recurse -Depth 3 | get-itemproperty | where { $_  -match  "$ProfileNameEscaped"}}
             Catch {logwrite -Logstring "No old MDM Tracking found in registry";$MDMsettings=$null}
-            If ($MDMsettings) {Try {$MDMsettings | Remove-Item
+            If ($MDMsettings) {Try {$MDMsettings | Remove-Item -Force
                 logwrite -Logstring "Found old MDM Tracking, removed from registry" -type Info}
                 catch{logwrite -Logstring "Found old MDM Tracking, unable to remove from registry" -type warning}}
             Else {logwrite -Logstring "No old MDM Tracking found in registry"}
@@ -639,11 +642,19 @@ If (((Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion
                 # Remove old VPN NetworkList Profiles
             Try {$NetworkProfile = Get-Childitem -Path $NetworkProfilesPath | Where {(Get-ItemPropertyValue $_.PsPath -Name Description) -eq $ProfileName}}
             Catch {logwrite -Logstring "No old NetworkList found in registry";$NetworkProfile=$null}
-            If ($NetworkProfile) {Try {$NetworkProfile | Remove-Item
+            If ($NetworkProfile) {Try {$NetworkProfile | Remove-Item -Force
                 logwrite -Logstring "Found old NetworkList, removed from registry" -type Info}
                 catch{logwrite -Logstring "Found old NetworkList, unable to remove from registry" -type warning}}
             Else {logwrite -Logstring "No old NetworkList found in registry"}
-    
+
+               # Remove old VPN DeviceTunnel Info
+            Try {$DeviceTunnelInfo = Get-Childitem -Path $DeviceTunnelInfoPath | Where {(Get-ItemPropertyValue $_.PsPath -Name AutoTriggerProfileEntryName) -eq $ProfileName}}
+            Catch {logwrite -Logstring "No old DeviceTunnelInfo found in registry";$DeviceTunnelInfo=$null}
+            If ($DeviceTunnelInfo) {Try {$DeviceTunnelInfo | Remove-Item -Force
+                logwrite -Logstring "Found old DeviceTunnelInfo, removed from registry" -type Info}
+                catch{logwrite -Logstring "Found old DeviceTunnelInfo, unable to remove from registry" -type warning}}
+            Else {logwrite -Logstring "No old DeviceTunnelInfo found in registry"}            
+
             # Create the new Always on VPN connection. This uses CSP over WMI bridge
         if ($InstallType -eq "install" -or $installtype -eq "reinstall"){
             try {
