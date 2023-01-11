@@ -49,6 +49,7 @@
     1.2.2207.2 - Solved Windows 11 problems with CSP over WMI. No blank DNS server list allowed
     1.3.2208.1 - Fixed Version Check
     1.4.2301.1 - Fixed new DeviceTunnelInfo regkey cleanup      
+    1.4.2301.2 - Fixed bug in DeviceTunnelInfo regkey cleanup      
 #>
 
 #region ---------------------------------------------------[Set script requirements]-----------------------------------------------
@@ -70,12 +71,12 @@ Param(
 $Company = "Coligo"    #Used in VPN ProfileName and registry keys
 
 #Version info
-[version]$ConfigVersion   = "1.4.2301.1"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
+[version]$ConfigVersion   = "1.4.2301.2"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
 $AddRemoveProgramEnabled  = $True         #$true register an App in Add Remove Programs for versioning and uninstall, $false skip registration in Add Remove Programs
 $MinWinBuild              = 17763         #17763 will require Windows 1809 to execute
 
 #Log settings
-$Global:GuiLogEnabled   = $False       #$true for test of script in manual execution
+$Global:GuiLogEnabled   = $false       #$true for test of script in manual execution
 $Global:EventlogEnabled = $True        #Creates an event log in Event viewer Application log
 $Global:FileLogEnabled  = $False       #Creates a file log for troubleshooting
 $Global:FileLogPath     = "$env:TEMP"  #Path to the file log
@@ -161,7 +162,7 @@ $AppFolder      = "$Env:Programfiles\$company"          # The folder for uninsta
 $AppGuid  = "{65FD0F16-91BE-4346-BDA4-24BAAA2344E3}"    # Application GUID used in Add Remove Programs
 $MDMPath = "HKLM:\SOFTWARE\Microsoft\EnterpriseResourceManager\Tracked"
 $NetworkProfilesPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkList\Profiles\'
-$DeviceTunnelInfoPath = 'HKLM:\System\CurrentControlSet\Services\RasMan\Devicetunnel\'
+$DeviceTunnelInfoPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\DeviceTunnel\'
 $AlwaysOnInfo = 'HKLM:\SYSTEM\CurrentControlSet\Services\RasMan\config'
 $AppKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$appguid"
 
@@ -648,9 +649,9 @@ If (((Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion
             Else {logwrite -Logstring "No old NetworkList found in registry"}
 
                # Remove old VPN DeviceTunnel Info
-            Try {$DeviceTunnelInfo = Get-Childitem -Path $DeviceTunnelInfoPath | Where {(Get-ItemPropertyValue $_.PsPath -Name AutoTriggerProfileEntryName) -eq $ProfileName}}
+            Try {$DeviceTunnelInfo = Get-ItemPropertyValue $DeviceTunnelInfoPath -Name AutoTriggerProfileEntryName -ErrorAction stop}
             Catch {logwrite -Logstring "No old DeviceTunnelInfo found in registry";$DeviceTunnelInfo=$null}
-            If ($DeviceTunnelInfo) {Try {$DeviceTunnelInfo | Remove-Item -Force
+            If ($DeviceTunnelInfo) {Try {Remove-Item $DeviceTunnelInfoPath -Force
                 logwrite -Logstring "Found old DeviceTunnelInfo, removed from registry" -type Info}
                 catch{logwrite -Logstring "Found old DeviceTunnelInfo, unable to remove from registry" -type warning}}
             Else {logwrite -Logstring "No old DeviceTunnelInfo found in registry"}            
