@@ -17,6 +17,8 @@ CHANGELOG
     1.3 - Fixed Version Check
     
     1.4 - Fixed new DeviceTunnelInfo regkey cleanup
+    
+    1.5 - Unified script for both Device and User Tunnel and some Bug Fixes. Removed minimum win build due to not needed
 
 # Reinstall/Uninstall
 
