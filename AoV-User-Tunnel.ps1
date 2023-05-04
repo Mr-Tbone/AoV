@@ -22,7 +22,7 @@
     torbjorn.granheden@coligo.se
 
 .VERSION
-    1.4
+    1.6
 
 .RELEASENOTES
     1.0 2022-02-18 Initial Build
@@ -31,6 +31,7 @@
     1.3 2022-08-15 Fixed Version check
     1.4 2023-01-09 Fixed new DeviceTunnelInfo regkey cleanup
     1.5 2023-03-16 Unified script for both Device and User Tunnel and some Bug Fixes. Removed minimum win build due to not needed
+    1.6 2023-03-17 Fixed some bugs
 .AUTHOR
     Tbone Granheden 
     @MrTbone_se
@@ -52,6 +53,7 @@
     1.4.2301.1 - Fixed new DeviceTunnelInfo regkey cleanup      
     1.4.2301.2 - Fixed bug in DeviceTunnelInfo regkey cleanup
     1.5.2303.1 - Unified script for both Device and User Tunnel and a lot of  bug Fixes and cleanups       
+    1.6.2303.1 - Fixed some bugs       
 #>
 
 #region ---------------------------------------------------[Set script requirements]-----------------------------------------------
@@ -73,11 +75,11 @@ Param(
 $Company = "Coligo"    #Used in VPN ProfileName and registry keys
 
 #Version info
-[version]$ConfigVersion   = "1.5.2303.1"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
+[version]$ConfigVersion   = "1.6.2303.1"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
 $AddRemoveProgramEnabled  = $True         #$true register an App in Add Remove Programs for versioning and uninstall, $false skip registration in Add Remove Programs
 
 #Log settings
-$Global:GuiLogEnabled   = $True       #$true = GUI lologging for test of script in manual execution
+$Global:GuiLogEnabled   = $False       #$true = GUI lologging for test of script in manual execution
 $Global:EventlogEnabled = $True        #$True = Create an event log in Event viewer Application log
 $Global:FileLogEnabled  = $False       #$True = Create a file log for troubleshooting in specified path
 $Global:FileLogPath     = "$env:TEMP"  #Path to the file log
@@ -87,42 +89,41 @@ $Global:FileLogHistory  = 10           #Purges but keep this number of file logs
 #Always on VPN PBK settings
 $RasNicMetric       = "3"   #Ras NIC ipv4 interface priority metric for a custom better DNS and nic priority. (0 = Default, 3 = Recommended)
 $RasNicMetricIPv6   = "3"   #Ras NIC ipv4 interface priority metric for a custom better DNS and nic priority. (0 = Default, 3 = Recommended)
-$VpnStrategy        = "8"   #Ras default protocol: 5 = Only SSTP,6 = SSTP first,7 = Only IKEv2,8 = IKEv2 first,14 = IKEv2 firstthen SSTP (6 = Default, 8 = Recommended)
+$VpnStrategy        = "5"   #Ras default protocol: 5 = Only SSTP,6 = SSTP first,7 = Only IKEv2,8 = IKEv2 first,14 = IKEv2 firstthen SSTP (6 = Default, 8 = Recommended)
 $DisableMobility    = "0"   #VPN reconnect after network outage: 0 = Enabled, 1= Disabled (0 = Default, 0 = Recommended) 
 $NetworkOutageTime  = "0"   #VPN reconnect timeout in seconds: '60', '120', '300', '600', '1200', '1800' (0 = default (1800 = 30 min), 0 = recommended)
 $UseRasCredentials  = "1"   #VPN reuses RAS credentials to connect to internal resourses with SSO (1 = Default, 1 = Recommended)
    
 # Always on VPN connection XML settings
-$AllUserProfile = $False    #$true = User tunnel stored in the all users profile, $false = User tunnel stored in the user profile (default)  
-$Oldprofilename = ''        #Optional, Cleanup of old connections with another name for example: "AoV-Usertunnel*". To delete none, leave blank: '' 
-$ProfileName    = "$company AoV User Tunnel" #Name of the VPN profile to create
+$AllUserProfile = $False     #Option to create the Always On VPN user tunnel profile in the all users profile 
+$Oldprofilename = ''        #Optional, Cleanup of old connections with another name for example: "AoV-Usertunnel*". To delete none, enter: '' 
+$ProfileName    = "$Company AoV User Tunnel" #Name of the VPN profile to create
 $VPNProfileXML     = '  
 <VPNProfile>
     <DeviceTunnel>false</DeviceTunnel>                              <!--true = Create Device Tunnel, false = Create user tunnel (default)-->
     <AlwaysOn>true</AlwaysOn>                                       <!--true = Tunnel is Always on, false = Tunnel is not Always On (Default) -->
     <RememberCredentials>true</RememberCredentials>                 <!--true = Credentials are cached whenever possible, false = Do not cache credentials (default) -->
     <TrustedNetworkDetection>coligo.se</TrustedNetworkDetection>    <!--VPN does not connect when connected to this trusted network, multiple networks can be seperated by comma ","-->
-    <DnsSuffix>Coligo.se</DnsSuffix>                                <!--The DNS suffix for the VPN NIC-->
+    <DnsSuffix>coligo.se</DnsSuffix>                                <!--The DNS suffix for the VPN NIC-->
     <RegisterDNS>false</RegisterDNS>                                <!--true = Register in DNS, false = Do not register in DNS (default)-->
     <ByPassForLocal>false</ByPassForLocal>                          <!--true = Local resources bypass vpn in forced tunnel, false = local resources not available in forced tunnel (default)-->
 <!--NRPT-->
-    <DomainNameInformation>                                         <!--NRPT and Trigger VPN to connect if using any of the listed adresses-->
-        <DomainName>.coligo.se</DomainName>                         <!--NRPT domain to trigger this rule-->
-        <DnsServers>10.10.10.4</DnsServers>                         <!--NRPT DNS to use when doing lookups on that domain. (Cannot be blank in Win 11)-->
-        <AutoTrigger>true</AutoTrigger>                             <!--NRPT Auto connect VPN if using the domain name-->
-    </DomainNameInformation>
     <DomainNameInformation>                                         <!--NRPT exclude your VPN server from suffix rule above -->
         <DomainName>vpn.coligo.se</DomainName>
         <DnsServers>1.1.1.1,8.8.8.8</DnsServers>                    <!--Using public DNS (Cannot be blank in Win 11)-->
-        <AutoTrigger>true</AutoTrigger>                     
+        <AutoTrigger>false</AutoTrigger>                     
+<DomainNameType>FQDN</DomainNameType>
+<Persistent>true</Persistent>
+    </DomainNameInformation>
+    <DomainNameInformation>                                         <!--NRPT and Trigger VPN to connect if using any of the listed adresses-->
+        <DomainName>.coligo.se</DomainName>                         <!--NRPT domain to trigger this rule-->
+        <DnsServers>10.10.10.4,10.10.10.5</DnsServers>              <!--NRPT DNS to use when doing lookups on that domain. (Cannot be blank in Win 11)-->
+        <AutoTrigger>true</AutoTrigger>                             <!--NRPT Auto connect VPN if using the domain name-->
     </DomainNameInformation>
     <NativeProfile>    
         <Servers>vpn.coligo.se</Servers>                            <!--VPN Server Address-->
         <NativeProtocolType>Automatic</NativeProtocolType>          <!--VPN Connection Protocol, PPTP,L2TP,SSTP,IKEv2,Automatic,ProtocolList-->
-<!--New settings for Windows 11 Insider-->        
-        <ProtocolList><NativeProtocolList><Type>SSTP</Type><RetryTimeInHours>168</RetryTimeInHours></NativeProtocolList></ProtocolList>     <!--List of Protocols if using ProtocolList-->
-        <ProtocolList><NativeProtocolList><Type>IKEv2</Type><RetryTimeInHours>168</RetryTimeInHours></NativeProtocolList></ProtocolList>    <!--List of Protocols if using ProtocolList-->
-<!--VPN Authentication Method-->
+        <!--VPN Authentication Method-->
         <Authentication>
             <UserMethod>Eap</UserMethod>
                 <Eap>
@@ -180,11 +181,11 @@ $VPNProfileXML     = '
     <Route><Address>10.1.0.0</Address><PrefixSize>16</PrefixSize><Metric>0</Metric></Route> 
     <Route><Address>10.2.0.0</Address><PrefixSize>16</PrefixSize><Metric>0</Metric></Route>
 <!--New settings for Windows 11 22H2-->
-    <DisableAdvancedOptionsEditButton>true</DisableAdvancedOptionsEditButton>   <!--true = Advanced Options Edit Button is not available, false = Advanced Options Edit Button is available (default)-->
-    <DisableDisconnectButton>true</DisableDisconnectButton>                     <!--true = Disconnect Button is not visible, false = Disconnect Button is visible (default)-->
+    <DisableAdvancedOptionsEditButton>false</DisableAdvancedOptionsEditButton>  <!--true = Advanced Options Edit Button is not available, false = Advanced Options Edit Button is available (default)-->
+    <DisableDisconnectButton>false</DisableDisconnectButton>                    <!--true = Disconnect Button is not visible, false = Disconnect Button is visible (default)-->
 <!--New settings for Windows 11 Insider-->
     <DisableIKEv2Fragmentation>false</DisableIKEv2Fragmentation>                <!--true = IKEv2 Fragmentation will not be used, false = IKEv2 Fragmentation will be used (Default)-->
-    <DataEncryption>Max</DataEncryption>                                        <!--Set encryptionlevel to None, Optional, Require(default), Max-->
+    <DataEncryption>Optional</DataEncryption>                                   <!--Set encryptionlevel to None, Optional, Require(default), Max-->
     <IPv4InterfaceMetric>3</IPv4InterfaceMetric>                                <!--ipv4 interface priority metric for a custom better DNS and nic priority. (0 = Default, 3 = Recommended)-->
     <IPv6InterfaceMetric>3</IPv6InterfaceMetric>                                <!--ipv6 interface priority metric for a custom better DNS and nic priority. (0 = Default, 3 = Recommended)-->
     <NetworkOutageTime>0</NetworkOutageTime>                                    <!--VPN reconnect timeout in seconds: 60, 120, 300, 600, 1200, 1800 (0 = default (1800 = 30 min), 0 = recommended)-->
