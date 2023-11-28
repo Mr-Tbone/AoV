@@ -22,7 +22,7 @@ CHANGELOG
 
     1.6 - Fixed some bugs
     
-    1.7 - Added modify button in Add Remove Programs to repair/reinstall the VPN connection
+    1.7 - Added modify option in Add Remove Programs to repair/reinstall the VPN connection
 
 # Reinstall/Uninstall
 
@@ -55,7 +55,7 @@ $Global:GuiLogEnabled   = $False       #$true for test of script in manual execu
 
 # Add Remove Programs
 
-As mentioned before the script will also register in Add Remove Programs with it´s name and version. This is quite nice, then it can be inventoried as any other application installed. This info is also used if the script is updated with a new version or if it is running in reinstall mode. One tricky part was to add the uninstall part. But now in the latest version, both uninstall and modify button in add remove programs works just fine. When selecting modify, the VPN connection is reinstalled by running in installmode reinstall.
+As mentioned before the script will also register in Add Remove Programs with it´s name and version. This is quite nice, then it can be inventoried as any other application installed. This info is also used if the script is updated with a new version or if it is running in reinstall mode. One tricky part was to add the uninstall part. But now in the latest version, both uninstall and modify options in add remove programs works just fine. When selecting modify, the VPN connection is reinstalled by running in installmode reinstall.
 
 # Logging
 
