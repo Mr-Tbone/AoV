@@ -20,6 +20,10 @@ CHANGELOG
     
     1.5 - Unified script for both Device and User Tunnel and some Bug Fixes. Removed minimum win build due to not needed
 
+    1.6 - Fixed some bugs
+    
+    1.7 - Added modify button in Add Remove Programs to repair/reinstall the VPN connection
+
 # Reinstall/Uninstall
 
 The script has three modes: Install, Reinstall and Uninstall. The default is Install, it will install the VPN if missing and update if an old version. If run on a computer with same version it will exit without actions. But what if the VPN has some error and you need to manually update the config. Then it can be reinstalled with the Reinstall switch. And if the VPN connection needs to be removed, just use the uninstall option.
@@ -51,7 +55,7 @@ $Global:GuiLogEnabled   = $False       #$true for test of script in manual execu
 
 # Add Remove Programs
 
-As mentioned before the script will also register in Add Remove Programs with it´s name and version. This is quite nice, then it can be inventoried as any other application installed. This info is also used if the script is updated with a new version or if it is running in reinstall mode. The most tricky part with this was the uninstall part. But now in the latest version, it works just fine.
+As mentioned before the script will also register in Add Remove Programs with it´s name and version. This is quite nice, then it can be inventoried as any other application installed. This info is also used if the script is updated with a new version or if it is running in reinstall mode. One tricky part was to add the uninstall part. But now in the latest version, both uninstall and modify button in add remove programs works just fine. When selecting modify, the VPN connection is reinstalled by running in installmode reinstall.
 
 # Logging
 
