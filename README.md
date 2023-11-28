@@ -65,8 +65,10 @@ As mentioned before the script will also register in Add Remove Programs with it
 # Logging
 
 I have built my own logging function that will write to GUI, Event Viewer or File. Whatever the customer prefer. I use the same function it in many of my scripts and it works really good on all targets so far. The GUI logging is mostly used when testing the script, if disabled it will run silent.
+
 ![alt text](https://github.com/Mr-Tbone/AoV/blob/main/Images/AoV-Logging.png?raw=true)
 # INI file update
 
 The script also searches for the INI file (rasphone.pbk) that the VPN connection created. This INI file can sometimes end up in other location than default. Thereby I use some regkeys to try find the path so I can edit the correct file. I have added the settings that sometimes need optimization for Always On VPN.
+
 ![alt text](https://github.com/Mr-Tbone/AoV/blob/main/Images/AoV-connect.png?raw=true)
