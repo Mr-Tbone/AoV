@@ -70,5 +70,5 @@ I have built my own logging function that will write to GUI, Event Viewer or Fil
 # INI file update
 
 The script also searches for the INI file (rasphone.pbk) that the VPN connection created. This INI file can sometimes end up in other location than default. Thereby I use some regkeys to try find the path so I can edit the correct file. I have added the settings that sometimes need optimization for Always On VPN.
-
+<br>
 ![alt text](https://github.com/Mr-Tbone/AoV/blob/main/Images/AoV-connect.png?raw=true)
