@@ -32,7 +32,7 @@
     1.4 2023-01-09 Fixed new DeviceTunnelInfo regkey cleanup
     1.5 2023-03-16 Unified script for both Device and User Tunnel and some Bug Fixes. Removed minimum win build due to not needed
     1.6 2023-03-17 Fixed some bugs
-    1.7 2023-11-28 Added modify button in Add Remove Programs to repair/reinstall the VPN connection
+    1.7 2023-11-28 Added modify option in Add Remove Programs to repair/reinstall the VPN connection
 
 .AUTHOR
     Tbone Granheden 
@@ -56,7 +56,7 @@
     1.4.2301.2 - Fixed bug in DeviceTunnelInfo regkey cleanup
     1.5.2303.1 - Unified script for both Device and User Tunnel and a lot of  bug Fixes and cleanups       
     1.6.2303.1 - Fixed some bugs
-    1.7.2311.1 - Added modify button in Add Remove Programs to repair/reinstall the VPN connection
+    1.7.2311.1 - Added modify option in Add Remove Programs to repair/reinstall the VPN connection
 #>
 
 #region ---------------------------------------------------[Set script requirements]-----------------------------------------------
@@ -80,8 +80,8 @@ $Company = "Coligo"    #Used in VPN ProfileName and registry keys
 #Version info
 [version]$ConfigVersion   = "1.6.2303.1"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
 $AddRemoveProgramEnabled  = $True         #$true register an App in Add Remove Programs for versioning and uninstall, $false skip registration in Add Remove Programs
-$AddRemoveProgramUninstall= $True         #$true enables an uninstall button in Add Remove Programs for the posibility to uninstall the VPN connection, $false hide the button
-$AddRemoveProgramModify   = $True         #$true enables an modify button in Add Remove Programs for the posibility to repair/reinstall the VPN connection, $false hide the button
+$AddRemoveProgramUninstall= $True         #$true enables an uninstall option in Add Remove Programs for the possibility to uninstall the VPN connection, $false hide the option
+$AddRemoveProgramModify   = $True         #$true enables an modify option in Add Remove Programs for the possibility to repair/reinstall the VPN connection, $false hide the option
 
 #Log settings
 $Global:GuiLogEnabled   = $False       #$true = GUI lologging for test of script in manual execution
