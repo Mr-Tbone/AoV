@@ -56,8 +56,7 @@ $Global:GuiLogEnabled   = $False       #$true for test of script in manual execu
 # Add Remove Programs
 
 As mentioned before the script will also register in Add Remove Programs with it´s name and version. This is quite nice, then it can be inventoried as any other application installed. This info is also used if the script is updated with a new version or if it is running in reinstall mode. One tricky part was to add the uninstall part. But now in the latest version, both uninstall and modify options in add remove programs works just fine. When selecting modify, the VPN connection is reinstalled by running in installmode reinstall.
-![alt text]((https://github.com/Mr-Tbone/AoV/blob/main/Images/AoV-connect.png)?raw=true)
-
+![alt text](https://github.com/Mr-Tbone/AoV/blob/main/Images/AoV-connect.png?raw=true)
 # Logging
 
 I have built my own logging function that will write to GUI, Event Viewer or File. Whatever the customer prefer. I use the same function it in many of my scripts and it works really good on all targets so far. The GUI logging is mostly used when testing the script, if disabled it will run silent.
