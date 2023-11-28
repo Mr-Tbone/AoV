@@ -22,7 +22,7 @@
     torbjorn.granheden@coligo.se
 
 .VERSION
-    1.7
+    1.6
 
 .RELEASENOTES
     1.0 2022-02-18 Initial Build
@@ -32,8 +32,6 @@
     1.4 2023-01-09 Fixed new DeviceTunnelInfo regkey cleanup
     1.5 2023-03-16 Unified script for both Device and User Tunnel and some Bug Fixes. Removed minimum win build due to not needed
     1.6 2023-03-17 Fixed some bugs
-    1.7 2023-11-28 Added modify button in Add Remove Programs to repair/reinstall the VPN connection
-
 .AUTHOR
     Tbone Granheden 
     @MrTbone_se
@@ -42,7 +40,7 @@
     Coligo AB
 
 .GUID 
-    65FD0F16-91BE-4346-BDA4-24BAAA2344E2
+    00000000-0000-0000-0000-000000000000
 
 .COPYRIGHT
     Feel free to use this, But would be grateful if My name is mentioned in Notes 
@@ -55,8 +53,7 @@
     1.4.2301.1 - Fixed new DeviceTunnelInfo regkey cleanup      
     1.4.2301.2 - Fixed bug in DeviceTunnelInfo regkey cleanup
     1.5.2303.1 - Unified script for both Device and User Tunnel and a lot of  bug Fixes and cleanups       
-    1.6.2303.1 - Fixed some bugs
-    1.7.2311.1 - Added modify button in Add Remove Programs to repair/reinstall the VPN connection
+    1.6.2303.1 - Fixed some bugs       
 #>
 
 #region ---------------------------------------------------[Set script requirements]-----------------------------------------------
@@ -80,8 +77,6 @@ $Company = "Coligo"    #Used in VPN ProfileName and registry keys
 #Version info
 [version]$ConfigVersion   = "1.6.2303.1"  #Increment when changing config, stored in registry to check if new config is needed. syntax: 1.1.YYMM.Version (1.1.2001.1)
 $AddRemoveProgramEnabled  = $True         #$true register an App in Add Remove Programs for versioning and uninstall, $false skip registration in Add Remove Programs
-$AddRemoveProgramUninstall= $True         #$true enables an uninstall button in Add Remove Programs for the posibility to uninstall the VPN connection, $false hide the button
-$AddRemoveProgramModify   = $True         #$true enables an modify button in Add Remove Programs for the posibility to repair/reinstall the VPN connection, $false hide the button
 
 #Log settings
 $Global:GuiLogEnabled   = $False       #$true = GUI lologging for test of script in manual execution
@@ -94,7 +89,7 @@ $Global:FileLogHistory  = 10           #Purges but keep this number of file logs
 #Always on VPN PBK settings
 $RasNicMetric       = "3"   #Ras NIC ipv4 interface priority metric for a custom better DNS and nic priority. (0 = Default, 3 = Recommended)
 $RasNicMetricIPv6   = "3"   #Ras NIC ipv4 interface priority metric for a custom better DNS and nic priority. (0 = Default, 3 = Recommended)
-$VpnStrategy        = "8"   #Ras default protocol: 5 = Only SSTP,6 = SSTP first,7 = Only IKEv2,8 = IKEv2 first,14 = IKEv2 first then SSTP (6 = Default, 8 = Recommended)
+$VpnStrategy        = "5"   #Ras default protocol: 5 = Only SSTP,6 = SSTP first,7 = Only IKEv2,8 = IKEv2 first,14 = IKEv2 firstthen SSTP (6 = Default, 8 = Recommended)
 $DisableMobility    = "0"   #VPN reconnect after network outage: 0 = Enabled, 1= Disabled (0 = Default, 0 = Recommended) 
 $NetworkOutageTime  = "0"   #VPN reconnect timeout in seconds: '60', '120', '300', '600', '1200', '1800' (0 = default (1800 = 30 min), 0 = recommended)
 $UseRasCredentials  = "1"   #VPN reuses RAS credentials to connect to internal resourses with SSO (1 = Default, 1 = Recommended)
@@ -103,7 +98,7 @@ $UseRasCredentials  = "1"   #VPN reuses RAS credentials to connect to internal r
 $AllUserProfile = $False     #Option to create the Always On VPN user tunnel profile in the all users profile 
 $Oldprofilename = ''        #Optional, Cleanup of old connections with another name for example: "AoV-Usertunnel*". To delete none, enter: '' 
 $ProfileName    = "$Company AoV User Tunnel" #Name of the VPN profile to create
-$VPNProfileXML     = '
+$VPNProfileXML     = '  
 <VPNProfile>
     <DeviceTunnel>false</DeviceTunnel>                              <!--true = Create Device Tunnel, false = Create user tunnel (default)-->
     <AlwaysOn>true</AlwaysOn>                                       <!--true = Tunnel is Always on, false = Tunnel is not Always On (Default) -->
@@ -212,10 +207,12 @@ $Global:ScriptPath  =  $MyInvocation.MyCommand.Path
 $logFile            = $Global:FileLogPath + "\" + $Global:ScriptName + "-" + $startTime + ".log"
 $Global:Eventlog    = @()
 #WMI Classes
-$nodeCSPURI         = "./Vendor/MSFT/VPNv2"     #https://learn.microsoft.com/windows/client-management/mdm/vpnv2-csp?WT.mc_id=EM-MVP-5004264
+$nodeCSPURI         = "./Vendor/MSFT/VPNv2"
 $namespaceName      = "root\cimv2\mdm\dmmap"
 $className          = "MDM_VPNv2_01"
 $deleteInstances    = $null
+#VPN related variables
+$servicename        = "dmwappushservice"
 #XML cleanup
 $ProfileNameEscaped     = $Profilename -replace ' ', '%20'
 $OldprofilenameEscaped  = $Oldprofilename -replace ' ', '%20'
@@ -223,10 +220,7 @@ $OldprofilenameEscaped  = $Oldprofilename -replace ' ', '%20'
 $VPNProfileXML = $VPNProfileXML -replace '<', '&lt;'
 $VPNProfileXML = $VPNProfileXML -replace '>', '&gt;'
 $VPNProfileXML = $VPNProfileXML -replace '"', '&quot;'
-#Service related variables
-$ServiceName        = "dmwappushservice"
-$serviceTimeout     = 10
-$serviceRetry       = 3
+
 #Apps and version settings
 $AppPublisher   = $company                                  # The publisher of the application in Add Remove Programs
 $AppFolder      = "$Env:Programfiles\$company"              # The folder for uninstallation scripts
@@ -325,11 +319,11 @@ Function LogWrite {
         }
     End { }
 }
+
 function enable-Service {
     param(
     [String] $serviceName,
-    [Int32] $timeoutSeconds,
-    [Int32] $maxTries
+    [Int32] $timeoutSeconds
     )
     $service = Get-Service $serviceName
     if ( -not $service ) {logwrite -Logstring "Failed to find the service $($servicename), cannot start it" -type Error}
@@ -344,26 +338,17 @@ function enable-Service {
         catch {logwrite -Logstring "Failed to set the service $($servicename) to start automatic with error: $_" -type Warning}
         }
         $timeSpan = New-Object Timespan 0,0,$timeoutSeconds
-        for ($i=0; $i -lt $maxTries; $i++) {
-            try {
-                $service.Start()
-                $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, $timeSpan)
-                logwrite -Logstring "Success to start the service $($servicename)" -type Info
-                return
+        try {
+            $service.Start()
+            $service.WaitForStatus([ServiceProcess.ServiceControllerStatus]::Running, $timeSpan)
             }
-            catch [Management.Automation.MethodInvocationException],[ServiceProcess.TimeoutException] {
-                if ($i -lt $maxTries - 1) {
-                    logwrite -Logstring "Failed to start the service $($servicename) with warning: $_" -type Warning
-                    Start-Sleep -Seconds $timeoutSeconds
-                }
-                else{logwrite -Logstring "Failed to start the service $($servicename) with error: $_" -type Error}
-            }
-        }
-    logwrite -Logstring "Failed to start the service $($servicename) after $maxTries attempts" -type Error
+        catch [Management.Automation.MethodInvocationException],[ServiceProcess.TimeoutException] {
+            logwrite -Logstring "Failed to start the service $($servicename) with error: $_" -type Error}
+    logwrite -Logstring "Success to start the service $($servicename)" -type Info
     return
 }
 
-Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon, $AppFolder, $UnInstall, $Modify){  
+Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon, $AppFolder){  
 
     logwrite -Logstring "Success to start adding entry in Add Remove Programs for Always On VPN" -type Info
     $IconName = $displayname -replace '\s',''
@@ -382,10 +367,6 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
     $UninstallBAT = "$appfolder\uninstall-$guid.bat"
     $Uninstallcmd1 = "cd $appfolder\"
     $Uninstallcmd2 = "Powershell.exe -noexit -ep bypass -file .\$Global:ScriptName.ps1 -installtype UnInstall"
-    $ModifyString = "CMD /C START cmd /c "+'"'+"$appfolder\reinstall-$guid.bat"+'"'
-    $ModifyBAT = "$appfolder\reinstall-$guid.bat"
-    $Modifycmd1 = "cd $appfolder\"
-    $Modifycmd2 = "Powershell.exe -noexit -ep bypass -file .\$Global:ScriptName.ps1 -installtype ReInstall"
     $IconPath = "$appfolder\$IconName.ico"  
      if(!(Test-Path $AppFolder )){
         Try {New-Item -ItemType Directory -Path $AppFolder  -Force
@@ -395,15 +376,12 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
         Set-Content -Path $IconPath -Value $content -Encoding Byte
         logwrite -Logstring "Success to copy icon to program files path" -type Info}
     catch [Exception]{logwrite -Logstring "Failed to copy icon to program files path with error: $_" -type Warning}
-    If ("$($Global:ScriptPath)" -ne "$($AppFolder)\$($Global:ScriptName).ps1"){
-        try {copy-item $Global:ScriptPath "$AppFolder\$Global:ScriptName.ps1" -force | Out-null
-            logwrite -Logstring "Success to copy current executing script to program files path for uninstall" -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to copy current executing script to program files path for uninstall with error: $_" -type Warning}}
+
+    try {copy-item $Global:ScriptPath "$AppFolder\$Global:ScriptName.ps1" -force | Out-null
+        logwrite -Logstring "Success to copy current executing script to program files path for uninstall" -type Info}
+    catch [Exception]{logwrite -Logstring "Failed to copy current executing script to program files path for uninstall with error: $_" -type Warning}
     $Uninstallcmd1 | Out-File -FilePath $UninstallBAT -Encoding ascii -Force
     $Uninstallcmd2 | Out-File -FilePath $UninstallBAT -Encoding ascii -Append
-    $Modifycmd1 | Out-File -FilePath $ModifyBAT -Encoding ascii -Force
-    $Modifycmd2 | Out-File -FilePath $ModifyBAT -Encoding ascii -Append
-
     Try{IF(!(Get-PSDrive HKCR -ErrorAction SilentlyContinue -WarningAction SilentlyContinue)) {New-PSDrive -PSProvider Registry -Name HKCR -Root  HKEY_CLASSES_ROOT | Out-Null}
                 logwrite -Logstring "Success to connect to HKCR registry." -type Info}
     Catch [Exception]{logwrite -Logstring "Failed to connect to HKCR registry with error: $_" -type Warning}
@@ -426,20 +404,12 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
         try {New-ItemProperty -Path $AddRemKey -Name VersionMinor -PropertyType String -Value $Version.minor -Force | Out-null
         logwrite -Logstring "Success to create Registry key VersionMinor for Add Remove Programs." -type Info}
     catch [Exception]{logwrite -Logstring "Failed to create Registry key VersionMinor for Add Remove Programs with error: $_" -type Warning}
-    if ($uninstall){    
-        try {New-ItemProperty -Path $AddRemKey -Name UninstallString -PropertyType String -Value $UninstallString -Force | Out-null
-            logwrite -Logstring "Success to create Registry key UninstallString for Add Remove Programs." -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to create Registry key UninstallString for Add Remove Programs with error: $_" -type Warning}
-        try {New-ItemProperty -Path $AddRemKey -Name UninstallPath -PropertyType String -Value $UninstallString -Force | Out-null
-            logwrite -Logstring "Success to create Registry key UninstallPath for Add Remove Programs." -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to create Registry key UninstallPath for Add Remove Programs with error: $_" -type Warning}
-        try {New-ItemProperty -Path $AddRemKey -Name NoRemove -PropertyType dword -Value 0 -Force | Out-null
-            logwrite -Logstring "Success to create Registry key NoRemove for Add Remove Programs." -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to create Registry key NoRemove for Add Remove Programs with error: $_" -type Warning}}
-    else{
-        try {New-ItemProperty -Path $AddRemKey -Name NoRemove -PropertyType dword -Value 1 -Force | Out-null
-            logwrite -Logstring "Success to create Registry key NoRemove for Add Remove Programs." -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to create Registry key NoRemove for Add Remove Programs with error: $_" -type Warning}}
+    try {New-ItemProperty -Path $AddRemKey -Name UninstallString -PropertyType String -Value $UninstallString -Force | Out-null
+        logwrite -Logstring "Success to create Registry key UninstallString for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Failed to create Registry key UninstallString for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $AddRemKey -Name UninstallPath -PropertyType String -Value $UninstallString -Force | Out-null
+        logwrite -Logstring "Success to create Registry key UninstallPath for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Failed to create Registry key UninstallPath for Add Remove Programs with error: $_" -type Warning}
     try {New-ItemProperty -Path $AddRemKey -Name Publisher -PropertyType String -Value $Publisher -Force | Out-null
         logwrite -Logstring "Success to create Registry key Publisher for Add Remove Programs." -type Info}
     catch [Exception]{logwrite -Logstring "Failed to create Registry key Publisher for Add Remove Programs with error: $_" -type Warning}
@@ -452,20 +422,12 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
     try {New-ItemProperty -Path $AddRemKey -Name InstallLocation -PropertyType String -Value "c:\windows\vclogs" -Force | Out-null
         logwrite -Logstring "Success to create Registry key InstallLocation for Add Remove Programs." -type Info}
     catch [Exception]{logwrite -Logstring "Failed to create Registry key InstallLocation for Add Remove Programs with error: $_" -type Warning}
-    if ($modify){
-        try {New-ItemProperty -Path $AddRemKey -Name ModifyString -PropertyType String -Value $ModifyString -Force | Out-null
-            logwrite -Logstring "Success to create Registry key ModifyString for Add Remove Programs." -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to create Registry key ModifyString for Add Remove Programs with error: $_" -type Warning}
-        try {New-ItemProperty -Path $AddRemKey -Name ModifyPath -PropertyType String -Value $ModifyString -Force | Out-null
-            logwrite -Logstring "Success to create Registry key ModifyPath for Add Remove Programs." -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to create Registry key ModifyPath for Add Remove Programs with error: $_" -type Warning}
-        try {New-ItemProperty -Path $AddRemKey -Name NoModify -PropertyType dword -Value 0 -Force | Out-null
-            logwrite -Logstring "Success to create Registry key NoModify for Add Remove Programs." -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to create Registry key NoModify for Add Remove Programs with error: $_" -type Warning}}
-    else{
-        try {New-ItemProperty -Path $AddRemKey -Name NoModify -PropertyType dword -Value 1 -Force | Out-null
-            logwrite -Logstring "Success to create Registry key NoModify for Add Remove Programs." -type Info}
-        catch [Exception]{logwrite -Logstring "Failed to create Registry key NoModify for Add Remove Programs with error: $_" -type Warning}}
+    try {New-ItemProperty -Path $AddRemKey -Name NoModify -PropertyType dword -Value 1 -Force | Out-null
+        logwrite -Logstring "Success to create Registry key NoModify for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Failed to create Registry key NoModify for Add Remove Programs with error: $_" -type Warning}
+    try {New-ItemProperty -Path $AddRemKey -Name NoRepair -PropertyType dword -Value 1 -Force | Out-null
+        logwrite -Logstring "Success to create Registry key NoRepair for Add Remove Programs." -type Info}
+    catch [Exception]{logwrite -Logstring "Failed to create Registry key NoRepair for Add Remove Programs with error: $_" -type Warning}
 
     IF(!(Test-Path $ProductsKey)){
         Try {New-Item -Path $ProductsKey -Force | Out-Null
@@ -566,42 +528,33 @@ Function Add-AddRemovePrograms($DisplayName, $Version, $guid, $Publisher, $icon,
     else{logwrite -Logstring "Skipped to remove Registry hive $($ProductsKey), does not exist" -type Warning}
 
     if(Test-Path $AppFolder ){
-        $Otherfiles = Get-ChildItem $AppFolder -recurse -exclude "$Global:ScriptName.ps1", "uninstall-$guid.bat", "reinstall-$guid.bat", $Iconfile
-        if ($otherfiles){
-            logwrite -Logstring "Failed to delete Program files folder, the folder is not empty" -type Warning
+        $Otherfiles = Get-ChildItem $AppFolder -recurse -exclude "$Global:ScriptName.ps1", "uninstall-$guid.bat", $Iconfile
+        if ($otherfiles)
+            {logwrite -Logstring "Failed to delete Program files folder, the folder is not empty" -type Warning
             if (test-path "$appfolder\$Global:ScriptName.ps1")
                 {Try{Remove-Item "$appfolder\$Global:ScriptName.ps1" -force
                     logwrite -Logstring "Success to remove script $($Global:ScriptName).ps1 from $($appfolder)." -type Info}
                 catch {logwrite -Logstring "Failed to remove script $($Global:ScriptName).ps1 from $($appfolder)." -type Warning}
                 }
-            if (test-path "$appfolder\$IconFile")
+            if (test-path "$appfolder\$Global:ScriptName.ps1")
                 {Try{Remove-Item "$appfolder\$IconFile" -force
                     logwrite -Logstring "Success to remove script $($IconFile) from $($appfolder)." -type Info}
                 catch {logwrite -Logstring "Failed to remove script $($IconFile) from $($appfolder)." -type Warning}
                 }
-            if (test-path "$appfolder\uninstall-$guid.bat")
+            if (test-path "$appfolder\$Global:ScriptName.ps1")
                 {Try{Remove-Item "$appfolder\uninstall-$guid.bat" -force
                     logwrite -Logstring "Success to remove script uninstall-$($guid).bat from $($appfolder)." -type Info}
                 catch {logwrite -Logstring "Failed to remove script uninstall-$($guid).bat from $($appfolder)." -type Warning}
                 }
-            if (test-path "$appfolder\reinstall-$guid.bat")
-                {Try{Remove-Item "$appfolder\reinstall-$guid.bat" -force
-                    logwrite -Logstring "Success to remove script reinstall-$($guid).bat from $($appfolder)." -type Info}
-                catch {logwrite -Logstring "Failed to remove script reinstall-$($guid).bat from $($appfolder)." -type Warning}
-                }
             }
-        else {
-            Try {Get-ChildItem -Path "$Appfolder\\*" -Recurse | Remove-Item -Force -Recurse
-                logwrite -Logstring "Success to remove the add remove program associeated files" -type Info}
-            catch [Exception]{logwrite -Logstring "Failed to remove the add remove program associated files with error: $_" -type Warning}
-            Try {Remove-Item $appfolder -Force -ErrorAction Stop
-                logwrite -Logstring "Success to remove the add remove program folder" -type Info
-            }
-            catch [Exception] {logwrite -Logstring "Failed to remove the add remove program folder with error: $_" -type Warning}
-        }
-    }
-}
+        else {Try {Get-ChildItem -Path "$Appfolder\\*" -Recurse | Remove-Item -Force -Recurse
+                    Remove-Item $appfolder -force
+            logwrite -Logstring "Success to remove program files path for uninstall script" -type Info}
+        catch [Exception]{logwrite -Logstring "Failed to remove program files path for uninstall script with error: $_" -type Warning}}}
 
+        remove-psdrive -name HKCR 
+    }
+ 
     function Set-PBKKey{
         param(
             [string]$path,
@@ -694,7 +647,7 @@ else {logwrite -Logstring "Skipped to get Currentversion from registry due to no
         } 
             
                 # Set WAP Push Service to start automatically 
-        enable-Service $servicename $serviceTimeout $serviceRetry
+        enable-Service $servicename 10
 
     #Connect CSP over WMI, The Best way to create and delete Always on VPN is via CSP over WMI Bridge. 
             try {
@@ -821,8 +774,8 @@ else {logwrite -Logstring "Skipped to get Currentversion from registry due to no
                 $Property = [Microsoft.Management.Infrastructure.CimProperty]::Create('ProfileXML', "$VPNProfileXML", 'String', 'Property')
                 $NewInstance.CimInstanceProperties.Add($Property)
                 if ($XMLVPNProfile.ChildNodes.devicetunnel -eq "true")
-                    {$vpnObject = $Session.CreateInstance($NamespaceName, $NewInstance)}
-                    else{$vpnObject = $session.CreateInstance($namespaceName, $newInstance, $options)}
+                    {$Session.CreateInstance($NamespaceName, $NewInstance)}
+                    else{$session.CreateInstance($namespaceName, $newInstance, $options)}
             logwrite -Logstring "Success to create VPN Profile $($ProfileName)" -type Info
                 }
         catch [Exception] {logwrite -Logstring "Failed to create VPN Profile $($ProfileName) with error: $_" -type Error}
@@ -889,7 +842,7 @@ else {logwrite -Logstring "Skipped to get Currentversion from registry due to no
         catch [Exception]{logwrite -Logstring "Failed to create regkey DisableNRPTForAdapterRegistration for a more reliable DNS registration with error: $_" -type Warning}
 
                 # Register or unregister in Add Remove Programs for Version and uninstallation info
-            if ($AddRemoveProgramEnabled) {Add-AddRemovePrograms $ProfileName $ConfigVersion $AppGuid $AppPublisher $AppIcon $AppFolder $AddRemoveProgramUninstall $AddRemoveProgramModify}
+            if ($AddRemoveProgramEnabled) {Add-AddRemovePrograms $ProfileName $ConfigVersion $AppGuid $AppPublisher $AppIcon $AppFolder}
 
                 # Connect the vpn
                 try {rasdial $profilename | out-null
