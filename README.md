@@ -24,6 +24,8 @@ CHANGELOG
     
     1.7 - Added modify option in Add Remove Programs to repair/reinstall the VPN connection
 
+    2.0 Major update to use my universal ps wrapper Wrap-PSScriptToAddRemovePrograms.ps1
+
 # Reinstall/Uninstall
 
 The script has three modes: Install, Reinstall and Uninstall. The default is Install, it will install the VPN if missing and update if an old version. If run on a computer with same version it will exit without actions. But what if the VPN has some error and you need to manually update the config. Then it can be reinstalled with the Reinstall switch. And if the VPN connection needs to be removed, just use the uninstall option.
